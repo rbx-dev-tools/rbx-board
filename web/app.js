@@ -61,21 +61,51 @@ function sorted(list) {
   return copy;
 }
 
+// Roblox does not remove a taken-down experience from its public API. It keeps
+// answering and replaces the name, so the only signal is the name itself.
+// These are the strings it uses, seen on real experiences.
+const TAKEN_DOWN = ["[ content deleted ]", "[title unavailable]", "[ title unavailable ]"];
+
+function isTakenDown(text) {
+  return TAKEN_DOWN.includes((text || "").trim().toLowerCase());
+}
+
 // What is wrong with a game, in the order somebody would want to hear it.
 function problems(game) {
   const found = [];
+
   if (!game.visible) {
-    // Deliberately not "deleted". The public API returns nothing for a private
-    // universe, a deleted one and a wrong id alike, and saying which would be
-    // guessing at something alarming.
-    found.push(["not public", "Roblox returns nothing for this id: private, removed, or the id is wrong"]);
+    // Deliberately not "deleted". The API returns nothing for a private
+    // universe, a wrong id, and one that no longer exists alike, and saying
+    // which would be guessing at something alarming.
+    found.push([
+      "no answer",
+      "Roblox returns nothing for this id: private, gone, or the id is wrong",
+    ]);
   }
+
+  if (isTakenDown(game.name)) {
+    found.push([
+      "content deleted",
+      "Roblox replaced this experience's name, which is how a takedown shows",
+    ]);
+  }
+
   if (game.content_restricted) {
     found.push(["restricted", "Roblox has restricted this experience's content"]);
   }
+
+  // The experience can be fine while the group that owns it is gone.
+  if (game.creator && isTakenDown(game.creator.name)) {
+    found.push(["owner deleted", "the account or group that owns this no longer exists"]);
+  } else if (game.creator?.name?.toLowerCase().startsWith("content deleted")) {
+    found.push(["owner deleted", "the account or group that owns this no longer exists"]);
+  }
+
   if (game.copying_allowed) {
     found.push(["copying on", "anyone can take a copy of this place"]);
   }
+
   return found;
 }
 
@@ -145,8 +175,14 @@ function card(game) {
   if (found.length === 0) {
     const ok = document.createElement("span");
     ok.className = "flag ok";
-    ok.textContent = "public";
-    ok.title = "Roblox serves this experience, copying is off, content is not restricted";
+    // "listed" and not "public". Whether an experience is published is not in
+    // any endpoint this reads, and a badge saying "public" about one that had
+    // been taken private would be worse than no badge at all. Listed is what
+    // is actually known: Roblox answers for it, under its own name.
+    ok.textContent = "listed";
+    ok.title =
+      "Roblox answers for this experience under its own name. Whether it is " +
+      "published is not in the public API, so this does not claim it.";
     flags.append(ok);
   }
   for (const [text, why] of found) {

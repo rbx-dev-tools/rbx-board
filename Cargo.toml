@@ -1,6 +1,6 @@
 [package]
 name = "rbx-board"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 # Bisected against real toolchains rather than read off the manifests: a crate
 # that declares no `rust-version` still has a floor. The `msrv` CI job holds it.
