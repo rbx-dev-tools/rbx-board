@@ -68,7 +68,13 @@ pub struct Creator {
     #[serde(default)]
     pub name: String,
     /// `Group` or `User`.
-    #[serde(default, rename = "type")]
+    ///
+    /// `alias` and not `rename`, because this struct is both read from Roblox
+    /// and written to the page. `rename = "type"` applies to serializing too,
+    /// so the browser received `type` while the script looked for `kind` and
+    /// found nothing. An alias accepts Roblox's name on the way in and keeps
+    /// ours on the way out.
+    #[serde(default, alias = "type")]
     pub kind: String,
 }
 

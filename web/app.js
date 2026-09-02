@@ -106,18 +106,50 @@ function card(game) {
   title.className = "title";
   title.textContent = game.label || game.name || String(game.universe_id);
 
+  // The owner is always shown, and Roblox's own name joins it when a label is
+  // hiding it. An earlier version showed one *or* the other, which meant the
+  // owner disappeared for every game that had a label: labels come from
+  // rbxplace.toml env names, so they always differ from the Roblox name, and
+  // the owner was never reachable.
+  // Two lines rather than one joined by a separator: a Roblox name and a group
+  // name are both long, and together they were being truncated to the point of
+  // hiding the very thing this was added to show.
   const sub = document.createElement("div");
   sub.className = "sub";
-  // Roblox's own name when a label is set and the two differ, which is exactly
-  // the case when the same game is published twice. Otherwise the owner, since
-  // that is the next thing worth knowing.
-  const owner = game.creator?.name ? `${game.creator.name}` : "";
   sub.textContent =
-    game.label && game.name && game.label !== game.name ? game.name : owner;
+    game.label && game.name && game.label !== game.name ? game.name : "";
 
+  const owner = document.createElement("div");
+  owner.className = "owner";
+  if (game.creator?.name) {
+    owner.textContent = game.creator.name;
+    owner.title =
+      game.creator.kind === "Group"
+        ? `Group ${game.creator.id}`
+        : `User ${game.creator.id}`;
+    if (game.creator.kind === "Group") {
+      const tag = document.createElement("span");
+      tag.className = "kind";
+      tag.textContent = "group";
+      owner.append(" ", tag);
+    }
+  }
+
+  // A badge either way. Showing one only when something is wrong makes a
+  // healthy board indistinguishable from a board that never checked, which is
+  // the thing worth being able to tell apart at a glance.
   const flags = document.createElement("div");
   flags.className = "flags";
-  for (const [text, why] of problems(game)) {
+
+  const found = problems(game);
+  if (found.length === 0) {
+    const ok = document.createElement("span");
+    ok.className = "flag ok";
+    ok.textContent = "public";
+    ok.title = "Roblox serves this experience, copying is off, content is not restricted";
+    flags.append(ok);
+  }
+  for (const [text, why] of found) {
     const flag = document.createElement("span");
     flag.className = "flag";
     flag.textContent = text;
@@ -149,7 +181,7 @@ function card(game) {
     stats.append(stat);
   }
 
-  body.append(title, sub, flags, stats);
+  body.append(title, sub, owner, flags, stats);
   el.append(icon, body);
   return el;
 }
@@ -181,7 +213,9 @@ function syncOwnerFilter() {
 
   // Keep the choice across a refresh, unless that owner is gone.
   ownerEl.value = names.includes(current) ? current : "";
-  ownerEl.hidden = names.length < 2;
+  // Shown even with one owner: hiding it made a board of one group look like a
+  // board that does not know about groups at all.
+  ownerEl.hidden = names.length === 0;
 }
 
 function visible(list) {
@@ -198,12 +232,14 @@ function render() {
   const visits = shown.reduce((sum, g) => sum + g.visits, 0);
   const flagged = shown.filter((g) => problems(g).length).length;
 
+  // The flagged count is always printed, zero included. "12 experiences, 0
+  // flagged" is a statement; the absence of the word is not.
   const parts = [
     `${shown.length} experiences`,
     `${number.format(playing)} playing`,
     `${number.format(visits)} visits`,
+    `${flagged} flagged`,
   ];
-  if (flagged > 0) parts.push(`${flagged} flagged`);
 
   totalsEl.textContent = parts.join(" · ");
   totalsEl.hidden = shown.length === 0;
