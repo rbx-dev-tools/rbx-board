@@ -6,6 +6,7 @@ const totalsEl = document.getElementById("totals");
 const statusEl = document.getElementById("status");
 const errorEl = document.getElementById("error");
 const sortEl = document.getElementById("sort");
+const ownerEl = document.getElementById("owner");
 
 // The sort survives a reload, because the one you want is the one you wanted
 // last time.
@@ -26,13 +27,23 @@ function ratio(game) {
   return total === 0 ? null : game.up_votes / total;
 }
 
+function displayName(game) {
+  return game.label || game.name || String(game.universe_id);
+}
+
 function sorted(list) {
   const by = sortEl.value;
   const copy = [...list];
 
   copy.sort((a, b) => {
     if (by === "name") {
-      return (a.label || a.name).localeCompare(b.label || b.name);
+      return displayName(a).localeCompare(displayName(b));
+    }
+    if (by === "flagged") {
+      // Most problems first, and among equals the busiest, so the list stays
+      // useful once nothing is wrong.
+      const d = problems(b).length - problems(a).length;
+      return d !== 0 ? d : b.playing - a.playing;
     }
     if (by === "ratio") {
       // A game with no votes has no rating, and sorting it as 0% would put a
@@ -50,10 +61,31 @@ function sorted(list) {
   return copy;
 }
 
+// What is wrong with a game, in the order somebody would want to hear it.
+function problems(game) {
+  const found = [];
+  if (!game.visible) {
+    // Deliberately not "deleted". The public API returns nothing for a private
+    // universe, a deleted one and a wrong id alike, and saying which would be
+    // guessing at something alarming.
+    found.push(["not public", "Roblox returns nothing for this id: private, removed, or the id is wrong"]);
+  }
+  if (game.content_restricted) {
+    found.push(["restricted", "Roblox has restricted this experience's content"]);
+  }
+  if (game.copying_allowed) {
+    found.push(["copying on", "anyone can take a copy of this place"]);
+  }
+  return found;
+}
+
 function card(game) {
   const el = document.createElement("a");
-  el.className = "game";
-  el.href = `https://www.roblox.com/games/${game.place_id}`;
+  el.className = "game" + (problems(game).length ? " flagged" : "");
+  // A game Roblox says nothing about has no place to link to.
+  el.href = game.visible
+    ? `https://www.roblox.com/games/${game.place_id}`
+    : `https://create.roblox.com/dashboard/creations`;
   el.target = "_blank";
   el.rel = "noreferrer";
 
@@ -72,13 +104,26 @@ function card(game) {
 
   const title = document.createElement("div");
   title.className = "title";
-  title.textContent = game.label || game.name;
+  title.textContent = game.label || game.name || String(game.universe_id);
 
   const sub = document.createElement("div");
   sub.className = "sub";
-  // When a label is set, Roblox's own name is the interesting second line:
-  // publishing the same game twice is exactly when the two differ.
-  sub.textContent = game.label && game.label !== game.name ? game.name : "";
+  // Roblox's own name when a label is set and the two differ, which is exactly
+  // the case when the same game is published twice. Otherwise the owner, since
+  // that is the next thing worth knowing.
+  const owner = game.creator?.name ? `${game.creator.name}` : "";
+  sub.textContent =
+    game.label && game.name && game.label !== game.name ? game.name : owner;
+
+  const flags = document.createElement("div");
+  flags.className = "flags";
+  for (const [text, why] of problems(game)) {
+    const flag = document.createElement("span");
+    flag.className = "flag";
+    flag.textContent = text;
+    flag.title = why;
+    flags.append(flag);
+  }
 
   const stats = document.createElement("div");
   stats.className = "stats";
@@ -104,20 +149,64 @@ function card(game) {
     stats.append(stat);
   }
 
-  body.append(title, sub, stats);
+  body.append(title, sub, flags, stats);
   el.append(icon, body);
   return el;
 }
 
-function render() {
-  gamesEl.replaceChildren(...sorted(games).map(card));
+function owners(list) {
+  const names = new Set();
+  for (const game of list) {
+    if (game.creator?.name) names.add(game.creator.name);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
 
-  const playing = games.reduce((sum, g) => sum + g.playing, 0);
-  const visits = games.reduce((sum, g) => sum + g.visits, 0);
-  totalsEl.textContent = `${games.length} experiences · ${number.format(
-    playing,
-  )} playing · ${number.format(visits)} visits`;
-  totalsEl.hidden = games.length === 0;
+function syncOwnerFilter() {
+  const current = ownerEl.value;
+  const names = owners(games);
+
+  ownerEl.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = `all owners (${names.length})`;
+  ownerEl.append(all);
+
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    ownerEl.append(option);
+  }
+
+  // Keep the choice across a refresh, unless that owner is gone.
+  ownerEl.value = names.includes(current) ? current : "";
+  ownerEl.hidden = names.length < 2;
+}
+
+function visible(list) {
+  const owner = ownerEl.value;
+  return owner ? list.filter((g) => g.creator?.name === owner) : list;
+}
+
+function render() {
+  syncOwnerFilter();
+  const shown = visible(games);
+  gamesEl.replaceChildren(...sorted(shown).map(card));
+
+  const playing = shown.reduce((sum, g) => sum + g.playing, 0);
+  const visits = shown.reduce((sum, g) => sum + g.visits, 0);
+  const flagged = shown.filter((g) => problems(g).length).length;
+
+  const parts = [
+    `${shown.length} experiences`,
+    `${number.format(playing)} playing`,
+    `${number.format(visits)} visits`,
+  ];
+  if (flagged > 0) parts.push(`${flagged} flagged`);
+
+  totalsEl.textContent = parts.join(" · ");
+  totalsEl.hidden = shown.length === 0;
 }
 
 async function refresh() {
@@ -141,6 +230,8 @@ async function refresh() {
     statusEl.textContent = "";
   }
 }
+
+ownerEl.addEventListener("change", render);
 
 sortEl.addEventListener("change", () => {
   try {

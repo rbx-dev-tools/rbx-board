@@ -42,6 +42,34 @@ pub struct Game {
     pub down_votes: u64,
     pub max_players: u64,
     pub icon: Option<String>,
+    /// Who owns it: a group or a user. Comes back with the experience itself,
+    /// so grouping the board by group costs no extra call.
+    pub creator: Option<Creator>,
+    /// Anyone may take a copy of the place. Almost always a mistake, and the
+    /// reason the old tool had a "problems" list.
+    pub copying_allowed: bool,
+    /// Roblox has restricted the content. Worth seeing the day it happens
+    /// rather than the day somebody notices the visits stopped.
+    pub content_restricted: bool,
+    /// Roblox returned nothing for this id.
+    ///
+    /// It means private, deleted, or simply wrong, and the public API does not
+    /// say which. The board says exactly that rather than guessing: a wrong
+    /// guess here reads as "your game was taken down".
+    pub visible: bool,
+    /// When Roblox last saw an update, as it reports it.
+    pub updated: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Creator {
+    #[serde(default)]
+    pub id: u64,
+    #[serde(default)]
+    pub name: String,
+    /// `Group` or `User`.
+    #[serde(default, rename = "type")]
+    pub kind: String,
 }
 
 pub struct Client {
@@ -94,7 +122,10 @@ impl Client {
                 .map(|e| e.data.into_iter().map(|i| (i.target_id, i)).collect())
                 .unwrap_or_default();
 
+            let mut seen = Vec::with_capacity(chunk.len());
+
             for detail in details.data {
+                seen.push(detail.id);
                 let vote = votes.get(&detail.id);
                 let icon = icons
                     .get(&detail.id)
@@ -113,6 +144,36 @@ impl Client {
                     down_votes: vote.map(|v| v.down_votes).unwrap_or(0),
                     max_players: detail.max_players,
                     icon,
+                    creator: detail.creator,
+                    copying_allowed: detail.copying_allowed,
+                    content_restricted: detail.is_content_restricted,
+                    visible: true,
+                    updated: detail.updated,
+                });
+            }
+
+            // An id Roblox said nothing about still gets a card. Dropping it
+            // silently is the failure mode worth avoiding: a game that has gone
+            // private or been taken down would simply vanish from the board,
+            // which looks exactly like never having added it.
+            for id in chunk.iter().filter(|id| !seen.contains(id)) {
+                out.push(Game {
+                    universe_id: *id,
+                    place_id: 0,
+                    name: String::new(),
+                    label: labels.get(id).cloned(),
+                    playing: 0,
+                    visits: 0,
+                    favorites: 0,
+                    up_votes: 0,
+                    down_votes: 0,
+                    max_players: 0,
+                    icon: None,
+                    creator: None,
+                    copying_allowed: false,
+                    content_restricted: false,
+                    visible: false,
+                    updated: None,
                 });
             }
         }
@@ -181,6 +242,14 @@ struct Detail {
     favorited_count: u64,
     #[serde(default)]
     max_players: u64,
+    #[serde(default)]
+    creator: Option<Creator>,
+    #[serde(default)]
+    copying_allowed: bool,
+    #[serde(default)]
+    is_content_restricted: bool,
+    #[serde(default)]
+    updated: Option<String>,
 }
 
 #[derive(Deserialize)]

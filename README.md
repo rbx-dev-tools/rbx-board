@@ -30,6 +30,29 @@ The cost is real and worth stating: **this board shows, it does not act.**
 Publishing, renaming, and taking an experience private live in the CLIs, where
 the credential already is.
 
+## Owners, and what is wrong
+
+The experience itself carries who owns it, so grouping the board by group costs
+no extra call and no credentials. With more than one owner across the board, a
+filter appears beside the sort.
+
+Three things get flagged, each from the same response:
+
+| flag | what it means |
+| --- | --- |
+| `not public` | Roblox returned nothing for this id |
+| `restricted` | Roblox has restricted this experience's content |
+| `copying on` | anyone can take a copy of this place |
+
+`not public` deliberately does not say *why*. The public API answers a private
+universe, a deleted one and a wrong id in exactly the same way: with nothing.
+Picking one of the three to display would mean telling you your game was taken
+down when it was simply set to private, so it says what it knows and no more.
+
+A flagged id still gets a card. Dropping it would be the worse failure: a game
+that went private would just vanish from the board, which looks identical to
+never having added it.
+
 ## Which experiences
 
 Three sources, and you rarely need more than one.

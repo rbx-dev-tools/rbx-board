@@ -168,6 +168,31 @@ main {
   font-size: 11px;
 }
 
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.flag {
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--bad);
+  border: 1px solid currentColor;
+  /* Every flag carries a `title` saying what it means, because "not public"
+     covers three different situations and the difference matters. */
+  cursor: help;
+}
+
+/* A left edge rather than a full tint: the card still has to be readable, and
+   a wall of red says nothing about which one is worse. */
+.game.flagged {
+  border-left: 3px solid var(--bad);
+}
+
 .error {
   margin-top: 16px;
   color: var(--bad);
