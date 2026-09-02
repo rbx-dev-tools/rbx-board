@@ -1,0 +1,55 @@
+[package]
+name = "rbx-board"
+version = "0.1.0"
+edition = "2021"
+# Bisected against real toolchains rather than read off the manifests: a crate
+# that declares no `rust-version` still has a floor. The `msrv` CI job holds it.
+rust-version = "1.88"
+license = "MPL-2.0"
+description = "A local board of your Roblox experiences: players, visits, votes, at a glance"
+repository = "https://github.com/rbx-dev-tools/rbx-board"
+homepage = "https://github.com/rbx-dev-tools/rbx-board"
+authors = ["rbx-forge"]
+keywords = ["roblox", "dashboard", "cli", "local"]
+categories = ["command-line-utilities", "game-development"]
+readme = "README.md"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Synchronous throughout, which is the whole reason there is no tokio here. One
+# person is looking at one page: there is nothing to overlap, and an async
+# runtime would be the largest thing in the binary for no benefit anybody could
+# measure.
+tiny_http = "0.12"
+reqwest = { version = "0.12", default-features = false, features = [
+    "blocking",
+    "json",
+    "gzip",
+    "charset",
+    "rustls-tls-native-roots",
+] }
+
+# Opens the page in whatever browser the machine already uses. The one piece of
+# per-platform behaviour, and the reason not to hand-roll `start` and `open`.
+open = "5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "warn"
+missing_debug_implementations = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+todo = "warn"
+dbg_macro = "warn"
+print_stdout = "allow"   # CLI tool, println! is intentional
+print_stderr = "allow"

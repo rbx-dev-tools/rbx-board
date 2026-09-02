@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rbx-board</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>rbx-board</h1>
+      <div class="controls">
+        <label>
+          Sort
+          <select id="sort">
+            <option value="playing">playing</option>
+            <option value="visits">visits</option>
+            <option value="favorites">favourites</option>
+            <option value="ratio">rating</option>
+            <option value="name">name</option>
+          </select>
+        </label>
+        <span id="status" class="status"></span>
+      </div>
+    </header>
+
+    <main>
+      <div id="totals" class="totals" hidden></div>
+      <div id="games" class="games"></div>
+      <p id="error" class="error" hidden></p>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
